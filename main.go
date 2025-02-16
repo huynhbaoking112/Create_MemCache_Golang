@@ -14,7 +14,7 @@ func init() {
 func main() {
 	r := gin.Default()
 
-	// Config router Admin
+	// Admin Router
 	routers.ConfigAdminRouter(r)
 
 	r.Run()

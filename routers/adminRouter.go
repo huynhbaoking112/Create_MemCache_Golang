@@ -8,6 +8,7 @@ import (
 
 func ConfigAdminRouter(r *gin.Engine) {
 
+	// Get Admin Controller
 	AdminController := controllers.GetNewAdmin()
 
 	v1 := r.Group("/v1/admin")
