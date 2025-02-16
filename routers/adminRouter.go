@@ -11,11 +11,19 @@ func ConfigAdminRouter(r *gin.Engine) {
 	// Get Admin Controller
 	AdminController := controllers.GetNewAdmin()
 
-	v1 := r.Group("/v1/admin")
+	// public router
+	public := r.Group("/v1/admin")
 	{
-		v1.POST("/signup", AdminController.Signup)
-		v1.POST("/login", AdminController.Login)
-		v1.GET("/validate", middleware.RequireAuth, AdminController.Validate)
+		public.POST("/signup", AdminController.Signup)
+		public.POST("/login", AdminController.Login)
+
+	}
+
+	// private router
+	private := r.Group("/v1/admin")
+	private.Use(middleware.RequireAuth)
+	{
+		private.GET("/validate", AdminController.Validate)
 	}
 
 }
