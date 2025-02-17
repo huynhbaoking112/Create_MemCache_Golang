@@ -42,7 +42,7 @@ func RequireAuth(c *gin.Context) {
 		}
 
 		// Find the user with token sub
-		var user models.User
+		var user models.Employee
 		userID := uint(claims["sub"].(float64)) // Chuyển đổi từ float64 sang uint
 		if err := global.Mdb.First(&user, userID).Error; err != nil || user.ID == 0 {
 			c.AbortWithStatus(http.StatusUnauthorized)

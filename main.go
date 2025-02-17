@@ -17,5 +17,8 @@ func main() {
 	// Admin Router
 	routers.ConfigAdminRouter(r)
 
+	// User Router
+	routers.ConfigUserRouter(r)
+
 	r.Run()
 }

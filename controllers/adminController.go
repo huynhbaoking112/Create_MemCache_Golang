@@ -23,8 +23,21 @@ func GetNewAdmin() *Admin {
 func (*Admin) Signup(c *gin.Context) {
 	// Get the email/ pass off req body
 	var body struct {
-		Email    string
-		Password string
+		FullName       string
+		Gender         string
+		Phone          string
+		Address        string
+		DateOfBirth    string
+		HireDate       string
+		Status         string
+		Email          string
+		Image          string
+		CardNumber     string
+		Bank           string
+		IsActive       string
+		Password       string
+		Role           int
+		SalaryPartTime int
 	}
 
 	if c.Bind(&body) != nil {
@@ -46,7 +59,7 @@ func (*Admin) Signup(c *gin.Context) {
 	}
 
 	// Create the user
-	user := models.User{Email: body.Email, Password: string(hash)}
+	user := models.Employee{Email: body.Email, Password: string(hash), FullName: body.FullName, Gender: body.Gender, Phone: body.Phone, Address: body.Address, DateOfBirth: body.DateOfBirth, HireDate: body.HireDate, Image: body.Image, CardNumber: body.CardNumber, Bank: body.Bank, Role: body.Role, SalaryPartTime: body.SalaryPartTime}
 
 	result := global.Mdb.Create(&user)
 
@@ -84,7 +97,7 @@ func (*Admin) Login(c *gin.Context) {
 	}
 
 	// Look up requested user
-	var user models.User
+	var user models.Employee
 	db.First(&user, "email = ?", body.Email)
 
 	if user.ID == 0 {
@@ -134,6 +147,7 @@ func (*Admin) Login(c *gin.Context) {
 }
 
 func (*Admin) Validate(c *gin.Context) {
+
 	// Lấy giá trị user từ context
 	user, exists := c.Get("user")
 	if !exists {
@@ -144,7 +158,7 @@ func (*Admin) Validate(c *gin.Context) {
 	}
 
 	// Ép kiểu user về models.User
-	userModel, ok := user.(models.User)
+	userModel, ok := user.(models.Employee)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to parse user data",
@@ -160,5 +174,46 @@ func (*Admin) Validate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login Success",
 		"user":    userModel,
+	})
+}
+func (*Admin) LimitEm(c *gin.Context) {
+	// Lấy db
+	db := global.Mdb
+
+	// Tạo struct body để nhận dữ liệu từ request body
+	var body struct {
+		Date  string `json:"date"` // Thêm json tag để chắc chắn rằng các trường sẽ được mapping đúng
+		Shift int    `json:"shift"`
+		Num   int    `json:"num"`
+	}
+
+	// Móc dữ liệu từ request body vào struct
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Failed to read body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Query tạo limit
+	result := db.Create(&models.LimitEmployee{
+		Date:  body.Date,
+		Shift: body.Shift,
+		Num:   body.Num,
+	})
+
+	// Kiểm tra lỗi khi tạo bản ghi
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to limit shift",
+			"error":   result.Error.Error(),
+		})
+		return
+	}
+
+	// Trả về kết quả thành công
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Limit shift successfully",
 	})
 }
