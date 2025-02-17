@@ -6,7 +6,7 @@ type Attendance struct {
 	gorm.Model
 	EmployeeID int
 	Date       string `gorm:"type:date"`
-	CheckIn    string `gorm:"type:time"`
-	CheckOut   string `gorm:"type:time"`
+	CheckIn    string `gorm:"type:time(3)"`
+	CheckOut   string `gorm:"type:time(3)"`
 	Shift      int
 }

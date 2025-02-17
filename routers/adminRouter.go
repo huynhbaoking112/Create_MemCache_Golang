@@ -25,6 +25,8 @@ func ConfigAdminRouter(r *gin.Engine) {
 	{
 		private.GET("/validate", AdminController.Validate)
 		private.POST("/limitem", AdminController.LimitEm)
+		private.POST("/createnewerror", AdminController.SetNewError)
+		private.POST("/createerrofem", AdminController.HanldeErrorEm)
 	}
 
 }

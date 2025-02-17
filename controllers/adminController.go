@@ -19,7 +19,6 @@ type Admin struct {
 func GetNewAdmin() *Admin {
 	return &Admin{}
 }
-
 func (*Admin) Signup(c *gin.Context) {
 	// Get the email/ pass off req body
 	var body struct {
@@ -77,7 +76,6 @@ func (*Admin) Signup(c *gin.Context) {
 	})
 
 }
-
 func (*Admin) Login(c *gin.Context) {
 
 	db := global.Mdb
@@ -145,7 +143,6 @@ func (*Admin) Login(c *gin.Context) {
 		"message": "Login success",
 	})
 }
-
 func (*Admin) Validate(c *gin.Context) {
 
 	// Lấy giá trị user từ context
@@ -216,4 +213,78 @@ func (*Admin) LimitEm(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Limit shift successfully",
 	})
+}
+
+func (*Admin) SetNewError(c *gin.Context) {
+
+	// Set cơ sở dữ liệu
+	db := global.Mdb
+
+	// body
+	var body struct {
+		NameErr string
+		Fines   float64
+	}
+
+	// Móc dữ liệu
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to read body",
+		})
+		return
+	}
+
+	// Tạo Lỗi
+	result := db.Create(&models.ErrorName{NameError: body.NameErr, Fines: body.Fines})
+
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to create new error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Create new error success",
+	})
+	return
+
+}
+
+func (*Admin) HanldeErrorEm(c *gin.Context) {
+	// Set cơ sở dữ liệu
+	db := global.Mdb
+
+	// body
+	var body struct {
+		Date       string
+		EmployeeID int
+		Time       string
+		TypeError  int
+		IsPayment  string
+		Evidence   string
+	}
+
+	// Móc dữ liệu
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to read body",
+		})
+		return
+	}
+
+	// Tạo Lỗi
+	result := db.Create(&models.Error{Date: body.Date, EmployeeID: body.EmployeeID, Time: body.Time, TypeError: body.TypeError, IsPayment: body.IsPayment, Evidence: body.Evidence})
+
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to create new of em error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Create new error of em success",
+	})
+	return
 }
