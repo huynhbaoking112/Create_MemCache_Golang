@@ -331,33 +331,109 @@ func (*Admin) PaymentForEm(c *gin.Context) {
 	// lấy db
 	db := global.Mdb
 
-	// Móc body
-	var body struct {
-		EmployeeID   int
-		AttendanceID int
-		Date         string
-		Time         string
-		Evidence     string
+	// {
+	// 	EmployeeID : 1,
+	// 	Date : "2025-02-18",
+	// 	Time : "07:00:00",
+	// 	Evidence : "url:asdasdsa.com",
+	// 	attendance_id:[1,23,5,6],
+	// 	bonus:[1,23,5,7],
+	// 	error:[9,12,3]
+	// }
+
+	// định nghĩa struct để parse JSON từ request body
+	var req struct {
+		EmployeeID   int    `json:"EmployeeID"`
+		Date         string `json:"Date"`
+		Time         string `json:"Time"`
+		Evidence     string `json:"Evidence"`
+		AttendanceID []int  `json:"attendance_id"`
+		Bonus        []int  `json:"bonus"`
+		Error        []int  `json:"error"`
 	}
 
-	if c.Bind(&body) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Failed to read body",
-		})
+	// Parse JSON từ request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	result := db.Create(&models.Payment{EmployeeID: body.EmployeeID, AttendanceID: body.AttendanceID, Date: body.Date, Time: body.Time, Evidence: body.Evidence})
+	// Bắt đầu transaction để đảm bảo tính toàn vẹn dữ liệu
+	tx := db.Begin()
 
-	if result.Error != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Failed to create new of em error",
-		})
+	// 1️⃣ Tạo bản ghi mới trong bảng Payment
+	payment := models.Payment{
+		EmployeeID: req.EmployeeID,
+		Date:       req.Date,
+		Time:       req.Time,
+		Evidence:   req.Evidence,
+	}
+
+	if err := tx.Create(&payment).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment"})
 		return
 	}
+
+	// 2️⃣ Cập nhật trạng thái is_payment trong bảng Bonus
+	if len(req.Bonus) > 0 {
+		if err := tx.Model(&models.Bonus{}).
+			Where("id IN (?)", req.Bonus).
+			Update("is_payment", "OK").Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bonuses"})
+			return
+		}
+	}
+
+	// 3️⃣ Cập nhật trạng thái is_payment trong bảng Error
+	if len(req.Error) > 0 {
+		if err := tx.Model(&models.Error{}).
+			Where("id IN (?)", req.Error).
+			Update("is_payment", "OK").Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update errors"})
+			return
+		}
+	}
+
+	// 4️⃣ Tạo các bản ghi trong Payment_Infor
+	var paymentInfoRecords []models.Payment_Infor
+	for _, attendanceID := range req.AttendanceID {
+		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+			Id_payment:   int(payment.ID),
+			AttendanceID: attendanceID,
+		})
+	}
+
+	for _, bonusID := range req.Bonus {
+		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+			Id_payment: int(payment.ID),
+			Bonus:      bonusID,
+		})
+	}
+
+	for _, errorID := range req.Error {
+		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+			Id_payment: int(payment.ID),
+			Error:      errorID,
+		})
+	}
+
+	if len(paymentInfoRecords) > 0 {
+		if err := tx.Create(&paymentInfoRecords).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment information"})
+			return
+		}
+	}
+
+	// Commit transaction nếu mọi thứ đều thành công
+	tx.Commit()
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Create payment success",
+		"message":    "Payment processed successfully",
+		"payment_id": payment.ID,
 	})
 
 }

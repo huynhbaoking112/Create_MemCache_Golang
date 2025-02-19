@@ -2,13 +2,14 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/huynhbaoking112/Create_MemCache_Golang.git/controllers"
 	"github.com/huynhbaoking112/Create_MemCache_Golang.git/middleware"
 )
 
 func ConfigCommonRouter(r *gin.Engine) {
 
 	// Get Common Controller
-	// CommonController := controllers.GetCommon()
+	CommonController := controllers.GetCommon()
 
 	// public router
 	// public := r.Group("/v1/admin")
@@ -22,7 +23,7 @@ func ConfigCommonRouter(r *gin.Engine) {
 	private := r.Group("/v1/common")
 	private.Use(middleware.RequireAuth)
 	{
-		private.GET("/getattendance")
+		private.GET("/getattendance/:id", CommonController.GetAttendance)
 	}
 
 }

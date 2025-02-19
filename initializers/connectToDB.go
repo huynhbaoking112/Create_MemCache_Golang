@@ -34,6 +34,7 @@ func ConnectDB() {
 
 func MigrateAllTable() {
 	global.Mdb.AutoMigrate(&models.Employee{},
+		&models.Payment_Infor{},
 		&models.Role{},
 		&models.SalaryPartTime{},
 		&models.WorkShifts{},
