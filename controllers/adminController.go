@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -286,5 +287,131 @@ func (*Admin) HanldeErrorEm(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Create new error of em success",
 	})
-	return
+
+}
+
+func (*Admin) CreateBonus(c *gin.Context) {
+	// lấy db
+	db := global.Mdb
+
+	// Móc body
+	var body struct {
+		EmployeeID  int
+		Date        string
+		Time        string
+		Description string
+		Money       float64
+		IsPayment   string
+	}
+
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to read body",
+		})
+		return
+	}
+
+	// Taọ Bonus
+	result := db.Create(&models.Bonus{EmployeeID: body.EmployeeID, Date: body.Date, Time: body.Time, Description: body.Description, Money: body.Money, IsPayment: body.IsPayment})
+
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to create new of em error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Create new bonus of em success",
+	})
+
+}
+
+func (*Admin) PaymentForEm(c *gin.Context) {
+	// lấy db
+	db := global.Mdb
+
+	// Móc body
+	var body struct {
+		EmployeeID   int
+		AttendanceID int
+		Date         string
+		Time         string
+		Evidence     string
+	}
+
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to read body",
+		})
+		return
+	}
+
+	result := db.Create(&models.Payment{EmployeeID: body.EmployeeID, AttendanceID: body.AttendanceID, Date: body.Date, Time: body.Time, Evidence: body.Evidence})
+
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to create new of em error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Create payment success",
+	})
+
+}
+
+func (*Admin) GetTakeLeave(c *gin.Context) {
+	// Lấy DB
+	db := global.Mdb
+
+	// Lấy limit và offset từ query parameters (mặc định: limit=10, offset=2)
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	// Khai báo slice để lưu kết quả
+	var takeLeaves []models.TakeLeave
+
+	// Truy vấn với limit và offset
+	err := db.Limit(limit).Offset(offset).Find(&takeLeaves).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi truy vấn cơ sở dữ liệu"})
+		return
+	}
+
+	// Trả về kết quả
+	c.JSON(http.StatusOK, gin.H{"data": takeLeaves})
+
+}
+
+func (*Admin) AcceptTakeleave(c *gin.Context) {
+	// lấy db
+	db := global.Mdb
+
+	// Móc body
+	var body struct {
+		ID int
+	}
+
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Failed to read body",
+		})
+		return
+	}
+
+	result := db.Model(&models.TakeLeave{}).Where("id = ?", body.ID).Update("is_agree", "OK")
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to update take leave request",
+		})
+		return
+	}
+
+	// Phản hồi thành công
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Take leave request approved successfully",
+	})
 }

@@ -20,5 +20,8 @@ func main() {
 	// User Router
 	routers.ConfigUserRouter(r)
 
+	// Common Router
+	routers.ConfigCommonRouter(r)
+
 	r.Run()
 }

@@ -24,6 +24,9 @@ func ConfigUserRouter(r *gin.Engine) {
 	private.Use(middleware.RequireAuth)
 	{
 		private.POST("/registration", UserController.RegisShift)
+		private.POST("/checkin", UserController.Checkin)
+		private.POST("/checkout", UserController.Checkout)
+		private.POST("/takeleave", UserController.TakeLeave)
 	}
 
 }

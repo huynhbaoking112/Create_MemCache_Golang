@@ -24,9 +24,14 @@ func ConfigAdminRouter(r *gin.Engine) {
 	private.Use(middleware.RequireAuth)
 	{
 		private.GET("/validate", AdminController.Validate)
+		private.GET("/takeleave", AdminController.GetTakeLeave)
+		private.POST("/takeleave", AdminController.AcceptTakeleave)
+
 		private.POST("/limitem", AdminController.LimitEm)
 		private.POST("/createnewerror", AdminController.SetNewError)
 		private.POST("/createerrofem", AdminController.HanldeErrorEm)
+		private.POST("/createbonus", AdminController.CreateBonus)
+		private.POST("/createpayment", AdminController.PaymentForEm)
 	}
 
 }
