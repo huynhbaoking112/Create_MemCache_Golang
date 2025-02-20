@@ -12,12 +12,10 @@ func ConfigCommonRouter(r *gin.Engine) {
 	CommonController := controllers.GetCommon()
 
 	// public router
-	// public := r.Group("/v1/admin")
-	// {
-	// 	public.POST("/signup", UserController.Signup)
-	// 	public.POST("/login", UserController.Login)
-
-	// }
+	public := r.Group("/v1/common")
+	{
+		public.POST("/login", CommonController.Login)
+	}
 
 	// private router
 	private := r.Group("/v1/common")

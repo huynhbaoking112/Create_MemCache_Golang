@@ -8,16 +8,8 @@ import (
 
 func ConfigUserRouter(r *gin.Engine) {
 
-	// Get Admin Controller
+	// Get User Controller
 	UserController := controllers.GetNewUser()
-
-	// public router
-	// public := r.Group("/v1/admin")
-	// {
-	// 	public.POST("/signup", UserController.Signup)
-	// 	public.POST("/login", UserController.Login)
-
-	// }
 
 	// private router
 	private := r.Group("/v1/user")
