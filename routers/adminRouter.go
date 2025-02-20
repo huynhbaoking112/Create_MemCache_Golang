@@ -53,7 +53,7 @@ func ConfigAdminRouter(r *gin.Engine) {
 		// Tạo SalaryPartTime
 		private.POST("/createsalary", AdminController.CreateSalary)
 		// Đổi salary cho user
-		// private.POST("/changesalary", AdminController.ChangeSalary)
+		private.POST("/changesalary", AdminController.ChangeSalary)
 
 	}
 

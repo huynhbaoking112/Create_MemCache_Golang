@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/huynhbaoking112/Create_MemCache_Golang.git/global"
 	"github.com/huynhbaoking112/Create_MemCache_Golang.git/models"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Admin struct {
@@ -526,4 +528,70 @@ func (*Admin) CreateSalary(c *gin.Context) {
 		"message": "Taọ salary thành công",
 	})
 
+}
+
+func (*Admin) ChangeSalary(c *gin.Context) {
+
+	// lấy db
+	db := global.Mdb
+
+	// {
+	// 	id_user : 1,
+	// 	id_salary: 2
+	// }
+
+	// Móc body
+	var body struct {
+		Id_User   int `json:"id_user"`
+		Id_Salary int `json:"id_salary"`
+	}
+
+	if err := c.ShouldBindBodyWithJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Dữ liệu đầu vào không hợp lệ",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Kiểm tra id_salary có tồn tại không
+	var salaryModel models.SalaryPartTime
+	errS := db.Where("id = ?", body.Id_Salary).First(&salaryModel).Error
+
+	if errS != nil {
+		if errors.Is(errS, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Salary K TỔN TẠI",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Lỗi truy vấn cơ sở dữ liệu",
+				"error":   errS.Error(),
+			})
+		}
+		return
+	}
+
+	// Change salary cho user
+	resultChange := db.Model(&models.Employee{}).Where("id = ?", body.Id_User).Update("salary_part_time", body.Id_Salary)
+
+	if resultChange.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Cập nhật lương cho user thất bại",
+			"error":   resultChange.Error.Error(),
+		})
+		return
+	}
+
+	// Kiểm tra nếu không có bản ghi nào bị ảnh hưởng
+	if resultChange.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Không tìm thấy user để cập nhật",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "ok",
+	})
 }
