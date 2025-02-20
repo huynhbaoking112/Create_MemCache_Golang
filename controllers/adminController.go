@@ -595,3 +595,56 @@ func (*Admin) ChangeSalary(c *gin.Context) {
 		"message": "ok",
 	})
 }
+
+func (*Admin) ChangeActive(c *gin.Context) {
+	db := global.Mdb
+
+	// Móc dữ liệu
+
+	// {
+	// 	active:"YES"/"NONO"
+	// }
+	var body struct {
+		Active string `json:"active"`
+	}
+
+	if err := c.ShouldBindBodyWithJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Dữ liệu đầu vào không đúng",
+		})
+		return
+	}
+
+	// lấy
+	Idstr := c.Param("id")
+	// Chuyển về dạng int
+	id, err := strconv.Atoi(Idstr)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Định dạng đường dẫn sai",
+		})
+		return
+	}
+
+	result := db.Model(&models.Employee{}).Where("id = ?", id).Update("is_active", body.Active)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Không thể cập nhật dữ liệu",
+		})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Id user không tồn tại",
+		})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"message": "Cập nhật hoạt động user thành công ",
+	})
+
+}

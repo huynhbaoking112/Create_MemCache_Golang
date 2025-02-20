@@ -55,6 +55,9 @@ func ConfigAdminRouter(r *gin.Engine) {
 		// Đổi salary cho user
 		private.POST("/changesalary", AdminController.ChangeSalary)
 
+		// Cấm User
+		private.POST("/activeuser/:id", AdminController.ChangeActive)
+
 	}
 
 }
