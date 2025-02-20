@@ -49,6 +49,10 @@ func RequireAuth(c *gin.Context) {
 			return
 		}
 
+		if user.IsActive == "NO" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 		// Attach to req
 		c.Set("user", user)
 

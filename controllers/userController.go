@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +21,6 @@ func GetNewUser() *User {
 }
 
 func (*User) RegisShift(c *gin.Context) {
-
-	// Lấy DB
 	db := global.Mdb
 
 	var body struct {
@@ -29,103 +28,109 @@ func (*User) RegisShift(c *gin.Context) {
 		Date  string
 	}
 
-	// Móc dữ liệu
 	if c.Bind(&body) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to read body",
-		})
-
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read body"})
 		return
 	}
-	// Lấy giá trị user từ context
+
 	user, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message": "User not found in context",
-		})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "User not found in context"})
 		return
 	}
 
-	// Ép kiểu user về models.Employee
 	userModel, ok := user.(models.Employee)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to parse user data",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to parse user data"})
 		return
 	}
 
-	// Kiểm tra tổng đăng kí trong ngày và ca đó hiện tại
+	// 🏆 Sử dụng goroutines để truy vấn song song
+	var wg sync.WaitGroup
 	var totalRegistrations int64
+	var limitEm models.LimitEmployee
+	var checkNV models.Registration
+	var errCount, errLimit, errCheck error
 
-	// Truy vấn để đếm số lượng người đăng ký cho ngày cụ thể
-	resultRegis := db.Model(&models.Registration{}).Where("date = ? AND shift = ?", body.Date, body.Shift).Count(&totalRegistrations)
+	// Channel để nhận kết quả lỗi
+	errChan := make(chan error, 3)
 
-	if resultRegis.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to count registrations",
-		})
+	// 🔹 Goroutine 1: Đếm số lượng đăng ký
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errCount = db.Model(&models.Registration{}).
+			Where("date = ? AND shift = ?", body.Date, body.Shift).
+			Count(&totalRegistrations).Error
+		if errCount != nil {
+			errChan <- errCount
+		}
+	}()
+
+	// 🔹 Goroutine 2: Kiểm tra giới hạn nhân viên
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errLimit = db.Where("date = ? AND shift = ?", body.Date, body.Shift).First(&limitEm).Error
+		if errLimit != nil && !errors.Is(errLimit, gorm.ErrRecordNotFound) {
+			errChan <- errLimit
+		}
+	}()
+
+	// 🔹 Goroutine 3: Kiểm tra nhân viên đã đăng ký chưa
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errCheck = db.Model(&models.Registration{}).
+			Where("employee_id = ? AND date = ? AND shift = ?", userModel.ID, body.Date, body.Shift).
+			First(&checkNV).Error
+		if errCheck != nil && !errors.Is(errCheck, gorm.ErrRecordNotFound) {
+			errChan <- errCheck
+		}
+	}()
+
+	// 🕒 Chờ tất cả goroutines hoàn thành
+	wg.Wait()
+	close(errChan)
+
+	// Xử lý lỗi nếu có
+	for err := range errChan {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	//kiểm tra limit employee
-	var limitEm models.LimitEmployee
-
-	if err := db.Where("date = ? AND shift = ?", body.Date, body.Shift).First(&limitEm).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch limit employee"})
-			return
-		}
-	}
-
-	// Nếu có limit
+	// 🔹 Kiểm tra số lượng đăng ký
 	maxRegistrations := 6
 	if limitEm.Num != 0 {
 		maxRegistrations = limitEm.Num
 	}
 
 	if int(totalRegistrations) >= maxRegistrations {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Employee in shift is full",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Employee in shift is full"})
 		return
 	}
 
-	// Kiểm tra đã đăng kí ca này trước đó hay chưa
-	var checkNV models.Registration
-	errS := db.Model(&models.Registration{}).Where("employee_id = ? AND date = ? AND shift = ?", userModel.ID, body.Date, body.Shift).First(&checkNV).Error
-
-	if !errors.Is(errS, gorm.ErrRecordNotFound) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Nhân viên đã đăng ký ca này trước đó",
-		})
+	// 🔹 Kiểm tra nhân viên đã đăng ký chưa
+	if errCheck == nil { // Nếu tìm thấy bản ghi => nhân viên đã đăng ký
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Nhân viên đã đăng ký ca này trước đó"})
 		return
 	}
 
-	// Tạo đối tượng Registration
+	// 🔹 Đăng ký ca làm
 	registration := models.Registration{
-		EmployeeID: int64(userModel.ID), // userModel.ID là kiểu int64
+		EmployeeID: int64(userModel.ID),
 		Date:       body.Date,
 		Shift:      body.Shift,
 	}
 
-	// Lưu vào DB
-	result := db.Create(&registration)
-
-	if result.Error != nil {
-		fmt.Println(result.Error)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "Failed to register shift",
-		})
+	if err := db.Create(&registration).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Failed to register shift"})
 		return
 	}
 
-	// Trả về response
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Shift registered successfully",
-	})
+	// 🏆 Thành công
+	c.JSON(http.StatusOK, gin.H{"message": "Shift registered successfully"})
 }
-
 func (*User) Checkout(c *gin.Context) {
 	// Lấy DB
 	db := global.Mdb

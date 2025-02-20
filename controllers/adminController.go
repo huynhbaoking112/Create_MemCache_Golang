@@ -23,6 +23,7 @@ type Admin struct {
 func GetNewAdmin() *Admin {
 	return &Admin{}
 }
+
 func (*Admin) Signup(c *gin.Context) {
 	// Get the email/ pass off req body
 	var body struct {
@@ -251,7 +252,6 @@ func (*Admin) SetNewError(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Create new error success",
 	})
-	return
 
 }
 
