@@ -491,3 +491,39 @@ func (*Admin) AcceptTakeleave(c *gin.Context) {
 		"message": "Take leave request approved successfully",
 	})
 }
+
+func (*Admin) CreateSalary(c *gin.Context) {
+	// Lấy DB
+	db := global.Mdb
+
+	// {
+	// 	newSalary : 40000
+	// }
+
+	// Móc body
+	var body struct {
+		Salary float64 `json:"salary"`
+	}
+
+	if c.Bind(&body) != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Lỗi móc dữ liệu",
+		})
+		return
+	}
+
+	// Taọ
+
+	modelSalary := models.SalaryPartTime{Salary: body.Salary}
+	if err := db.Create(&modelSalary).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Lỗi tạo salary mới",
+		})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"message": "Taọ salary thành công",
+	})
+
+}
