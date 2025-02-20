@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -377,57 +378,75 @@ func (*Admin) PaymentForEm(c *gin.Context) {
 		return
 	}
 
+	// Dùng goroutine
+	var wg sync.WaitGroup
+	errChan := make(chan error, 3)
+
 	// 2️⃣ Cập nhật trạng thái is_payment trong bảng Bonus
-	if len(req.Bonus) > 0 {
-		if err := tx.Model(&models.Bonus{}).
-			Where("id IN (?)", req.Bonus).
-			Update("is_payment", "OK").Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bonuses"})
-			return
+	go func() {
+		defer wg.Done()
+		if len(req.Bonus) > 0 {
+			if err := tx.Model(&models.Bonus{}).
+				Where("id IN (?)", req.Bonus).
+				Update("is_payment", "OK").Error; err != nil {
+				errChan <- err
+			}
 		}
-	}
+	}()
 
 	// 3️⃣ Cập nhật trạng thái is_payment trong bảng Error
-	if len(req.Error) > 0 {
-		if err := tx.Model(&models.Error{}).
-			Where("id IN (?)", req.Error).
-			Update("is_payment", "OK").Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update errors"})
-			return
+	go func() {
+		defer wg.Done()
+		if len(req.Error) > 0 {
+			if err := tx.Model(&models.Error{}).
+				Where("id IN (?)", req.Error).
+				Update("is_payment", "OK").Error; err != nil {
+				errChan <- err
+			}
 		}
-	}
+	}()
 
 	// 4️⃣ Tạo các bản ghi trong Payment_Infor
-	var paymentInfoRecords []models.Payment_Infor
-	for _, attendanceID := range req.AttendanceID {
-		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
-			Id_payment:   int(payment.ID),
-			AttendanceID: attendanceID,
-		})
-	}
-
-	for _, bonusID := range req.Bonus {
-		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
-			Id_payment: int(payment.ID),
-			Bonus:      bonusID,
-		})
-	}
-
-	for _, errorID := range req.Error {
-		paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
-			Id_payment: int(payment.ID),
-			Error:      errorID,
-		})
-	}
-
-	if len(paymentInfoRecords) > 0 {
-		if err := tx.Create(&paymentInfoRecords).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment information"})
-			return
+	go func() {
+		defer wg.Done()
+		var paymentInfoRecords []models.Payment_Infor
+		for _, attendanceID := range req.AttendanceID {
+			paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+				Id_payment:   int(payment.ID),
+				AttendanceID: attendanceID,
+			})
 		}
+
+		for _, bonusID := range req.Bonus {
+			paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+				Id_payment: int(payment.ID),
+				Bonus:      bonusID,
+			})
+		}
+
+		for _, errorID := range req.Error {
+			paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
+				Id_payment: int(payment.ID),
+				Error:      errorID,
+			})
+		}
+
+		if len(paymentInfoRecords) > 0 {
+			if err := tx.Create(&paymentInfoRecords).Error; err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(errChan)
+
+	for e := range errChan {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": e.Error()},
+		)
+		return
 	}
 
 	// Commit transaction nếu mọi thứ đều thành công
