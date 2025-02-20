@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/huynhbaoking112/Create_MemCache_Golang.git/global"
 	"github.com/huynhbaoking112/Create_MemCache_Golang.git/models"
+	"gorm.io/gorm"
 )
 
 type User struct {
@@ -66,29 +68,38 @@ func (*User) RegisShift(c *gin.Context) {
 		return
 	}
 
-	// Kiểm tra có lớn hơn 6 không
-	if totalRegistrations >= 6 {
+	//kiểm tra limit employee
+	var limitEm models.LimitEmployee
+
+	if err := db.Where("date = ? AND shift = ?", body.Date, body.Shift).First(&limitEm).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch limit employee"})
+			return
+		}
+	}
+
+	// Nếu có limit
+	maxRegistrations := 6
+	if limitEm.Num != 0 {
+		maxRegistrations = limitEm.Num
+	}
+
+	if int(totalRegistrations) >= maxRegistrations {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Employee in shift is full",
 		})
 		return
 	}
 
-	//kiểm tra limit employee
-	var limitEm models.LimitEmployee
+	// Kiểm tra đã đăng kí ca này trước đó hay chưa
+	var checkNV models.Registration
+	errS := db.Model(&models.Registration{}).Where("employee_id = ? AND date = ? AND shift = ?", userModel.ID, body.Date, body.Shift).First(&checkNV).Error
 
-	db.Model(&models.LimitEmployee{}).Where("date = ? AND shift = ?", body.Date, body.Shift).First(&limitEm)
-
-	// Nếu có limit
-	if limitEm.Num != 0 {
-
-		if limitEm.Num <= int(totalRegistrations) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Employee in shift is full",
-			})
-			return
-		}
-
+	if !errors.Is(errS, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Nhân viên đã đăng ký ca này trước đó",
+		})
+		return
 	}
 
 	// Tạo đối tượng Registration

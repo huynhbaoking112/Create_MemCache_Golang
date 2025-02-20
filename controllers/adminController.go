@@ -380,7 +380,9 @@ func (*Admin) PaymentForEm(c *gin.Context) {
 
 	// Dùng goroutine
 	var wg sync.WaitGroup
-	errChan := make(chan error, 3)
+	errChan := make(chan error, 5)
+
+	wg.Add(5)
 
 	// 2️⃣ Cập nhật trạng thái is_payment trong bảng Bonus
 	go func() {
@@ -407,6 +409,7 @@ func (*Admin) PaymentForEm(c *gin.Context) {
 	}()
 
 	// 4️⃣ Tạo các bản ghi trong Payment_Infor
+
 	go func() {
 		defer wg.Done()
 		var paymentInfoRecords []models.Payment_Infor
@@ -416,21 +419,36 @@ func (*Admin) PaymentForEm(c *gin.Context) {
 				AttendanceID: attendanceID,
 			})
 		}
-
+		if len(paymentInfoRecords) > 0 {
+			if err := tx.Create(&paymentInfoRecords).Error; err != nil {
+				errChan <- err
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var paymentInfoRecords []models.Payment_Infor
 		for _, bonusID := range req.Bonus {
 			paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
 				Id_payment: int(payment.ID),
 				Bonus:      bonusID,
 			})
 		}
-
+		if len(paymentInfoRecords) > 0 {
+			if err := tx.Create(&paymentInfoRecords).Error; err != nil {
+				errChan <- err
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var paymentInfoRecords []models.Payment_Infor
 		for _, errorID := range req.Error {
 			paymentInfoRecords = append(paymentInfoRecords, models.Payment_Infor{
 				Id_payment: int(payment.ID),
 				Error:      errorID,
 			})
 		}
-
 		if len(paymentInfoRecords) > 0 {
 			if err := tx.Create(&paymentInfoRecords).Error; err != nil {
 				errChan <- err
