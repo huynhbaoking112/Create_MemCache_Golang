@@ -15,9 +15,18 @@ func ConfigUserRouter(r *gin.Engine) {
 	private := r.Group("/v1/user")
 	private.Use(middleware.RequireAuth)
 	{
+		// Đăng ký ca
 		private.POST("/registration", UserController.RegisShift)
+
+		//--------------------------------------------------------
+
+		// Điểm danh vào
 		private.POST("/checkin", UserController.Checkin)
+		// Điểm danh ra
 		private.POST("/checkout", UserController.Checkout)
+
+		//--------------------------------------------------------
+		// Xin nghỉnghỉ
 		private.POST("/takeleave", UserController.TakeLeave)
 	}
 
