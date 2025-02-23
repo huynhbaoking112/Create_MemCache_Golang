@@ -9,5 +9,5 @@ type TakeLeave struct {
 	Shift     int
 	DES       string `gorm:"type:text"`
 	Evidience string `gorm:"type:text"`
-	IsAgree   string `gorm:"type:enum('OK','NO');default:'NO'"`
+	IsAgree   string `gorm:"type:enum('OK','NO','PROCESS');default:'PROCESS'"`
 }

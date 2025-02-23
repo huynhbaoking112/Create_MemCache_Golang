@@ -21,7 +21,17 @@ func ConfigCommonRouter(r *gin.Engine) {
 	private := r.Group("/v1/common")
 	private.Use(middleware.RequireAuth)
 	{
+
+		// lấy điểm danh
 		private.GET("/getattendance/:id", CommonController.GetAttendance)
+
+		// lấy lỗi
+		private.GET("/geterrorofem/:id", CommonController.GetErrorOfEm)
+
+		// bonus
+		private.GET("/getbonus/:id", CommonController.GetBonusOfEm)
+
+		// check nghỉ không phép
 	}
 
 }

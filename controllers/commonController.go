@@ -122,7 +122,7 @@ func (*Common) GetAttendance(c *gin.Context) {
 
 	// Kiểm tra quyền
 	if userModel.Role != 2 && int(userModel.ID) != id {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền nàynày"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền này"})
 		return
 	}
 
@@ -138,4 +138,120 @@ func (*Common) GetAttendance(c *gin.Context) {
 
 	// Nếu không có dữ liệu, vẫn trả về một mảng rỗng
 	c.JSON(http.StatusOK, gin.H{"attendances": userAttendace})
+}
+
+func (cmm *Common) GetErrorOfEm(c *gin.Context) {
+	db := global.Mdb
+
+	// Xử lý id
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Xử lý user
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Bạn phải đăng nhập"})
+		return
+	}
+	userModel, ok := user.(models.Employee)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi ép kiểu dữ liệu"})
+		return
+	}
+
+	// Kiểm tra quyền
+	if userModel.ID != uint(id) && userModel.Role != 2 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền này"})
+		return
+	}
+
+	// Struct tạm thời để lưu kết quả
+	type ErrorWithName struct {
+		EmployeeID int
+		Date       string
+		Time       string
+		TypeError  int
+		IsPayment  string
+		Evidence   string
+		NameError  string
+		Fines      float64
+	}
+
+	// Lấy lỗi
+	var resultError []ErrorWithName
+	result := db.Model(&models.Error{}).
+		Select("errors.employee_id", "errors.date", "errors.time", "errors.type_error", "errors.is_payment", "errors.evidence", "error_names.name_error", "error_names.fines").
+		Joins("left join error_names on error_names.id = errors.type_error").
+		Where("errors.employee_id = ?", id).
+		Order("errors.date DESC").
+		Find(&resultError)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": resultError})
+}
+
+func (cmm *Common) GetBonusOfEm(c *gin.Context) {
+	db := global.Mdb
+
+	// Xử lý id
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Xử lý user
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Bạn phải đăng nhập"})
+		return
+	}
+	userModel, ok := user.(models.Employee)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi ép kiểu dữ liệu"})
+		return
+	}
+
+	// Kiểm tra quyền
+	if userModel.ID != uint(id) && userModel.Role != 2 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không có quyền này"})
+		return
+	}
+
+	// Struct tạm thời để lưu kết quả
+	type ErrorWithName struct {
+		EmployeeID int
+		Date       string
+		Time       string
+		TypeError  int
+		IsPayment  string
+		Evidence   string
+		NameError  string
+		Fines      float64
+	}
+
+	// Lấy lỗi
+	var resultError []ErrorWithName
+	result := db.Model(&models.Error{}).
+		Select("errors.employee_id", "errors.date", "errors.time", "errors.type_error", "errors.is_payment", "errors.evidence", "error_names.name_error", "error_names.fines").
+		Joins("left join error_names on error_names.id = errors.type_error").
+		Where("errors.employee_id = ?", id).
+		Order("errors.date DESC").
+		Find(&resultError)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": resultError})
 }

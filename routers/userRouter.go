@@ -26,7 +26,7 @@ func ConfigUserRouter(r *gin.Engine) {
 		private.POST("/checkout", UserController.Checkout)
 
 		//--------------------------------------------------------
-		// Xin nghỉnghỉ
+		// Xin nghỉ
 		private.POST("/takeleave", UserController.TakeLeave)
 	}
 
